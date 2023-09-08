@@ -43,7 +43,7 @@ Further information about data can be found [here](data/data_info.txt)
 
 ## Insights and Analysis
 
-All the charts can be found [here.]()
+All the charts can be found [here.](https://github.com/mit4/Fifa-Player-Analysis/tree/aef922065caed0ef81298dcf6f45ad6375e568df/reports/figures/plots)
 Top Playes stats are [here.](reports/figures/top_players.html)
 
 Our analysis encompasses the following key areas:
