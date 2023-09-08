@@ -3,15 +3,14 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from IPython.core.display import HTML
-import plotly.graph_objs as go  # For interactive graphs
-import plotly.express as px
+import os
 
-data = pd.read_csv("../../data/processed_data.csv")
+data = pd.read_csv("data/processed_data.csv")
 
 
 def save_styled_dataframe_to_html(df, file_name):
     # Define the directory where you want to save the file
-    save_directory = "../../reports/"
+    save_directory = "reports/"
 
     # Create the directory if it doesn't exist
     os.makedirs(save_directory, exist_ok=True)
@@ -39,8 +38,9 @@ def save_styled_dataframe_to_html(df, file_name):
 
     # Save the rendered HTML to the specified file path
     with open(file_path, "w") as file:
-        file.write("styled_html")
-    return styled_table
+        file.write(styled_table.to_html(escape=False))
+
+    print(f"Styled table saved to '{file_path}'")
 
 
 # Creating a new dataframe - top_player
@@ -80,113 +80,94 @@ top_player = top_player[
 save_styled_dataframe_to_html(top_player, "top_players.html")
 
 
-def compare_players(list_of_players, file_name):
-    """
-    The function accepts the names of players whose stats we want to compare.
-    """
-    output_dir = "../../reports/figures/plots"
-    os.makedirs(output_dir, exist_ok=True)
-
-    names = list_of_players
-    fig = go.Figure()
-
-    # The stats we are using to compare, Feel free to use your own stats.
-    stats = ["pace", "shooting", "passing", "dribbling", "defending", "Acceleration"]
-    for name in names:
-        # Extract player stats based on name
-        player_stats = data[data["short_name"].str.contains(name)][stats]
-
-        fig.add_trace(
-            go.Scatterpolar(
-                # Passing numeric parameters
-                r=player_stats.iloc[0],
-                # Passing parameter names
-                theta=[
-                    "Pacing",
-                    "Shooting",
-                    "Passing",
-                    "Dribbling",
-                    "Defending",
-                    "Acceleration",
-                    "Pacing",
-                ],
-                # Setting the fill parameter
-                fill="toself",
-                # Specify the signature on hover
-                hovertemplate="<b>%{theta}</b>" + f"<b>: " + "%{r}",
-                # Specify a caption for the legend
-                name=name,
-                opacity=0.6,
-            )
-        )
-
-        fig.update_layout(
-            # Set the name of the chart
-            title="Comparison between players",
-            # Setting the background color
-            paper_bgcolor="rgb(223, 223, 223)",
-            # Setting the chart theme
-            template="xgridoff",
-            # Passing chart parameters
-            polar=dict(
-                # Background color
-                bgcolor="rgba(223, 223, 223, 0.6)",
-                # Adding a line with numeric divisions
-                radialaxis=dict(
-                    # Displaying the line
-                    visible=True,
-                    # Set the range of divisions
-                    range=[0, 100],
-                ),
-            ),
-        )
-
-    output_file = os.path.join(output_dir, f"plot_{file_name}.png")
-    if os.path.exists(output_file):
-        os.remove(output_file)
-    plt.savefig(output_file)
-
-    fig.show()
-
-
-compare_players(["L. Messi", "Cristiano Ronaldo"], "messi_vs_ronaldo")
-
-compare_players(["Neymar Jr", "Pogba", "K. Mbappé"], "ney_mbappe_pogba")
-
-
 def plot_position_distribution(data):
-    output_dir = "../../reports/figures/plots"
+    output_dir = "reports/figures/plots"
     os.makedirs(output_dir, exist_ok=True)
 
     all_pos = data["player_positions"].unique()
-    sta_pos = pd.DataFrame(np.zeros(15).reshape(1, 15), columns=all_pos)
+    stat_pos = pd.DataFrame(np.zeros(15).reshape(1, 15), columns=all_pos)
 
     def add(row):
-        sta_pos[row.player_positions][0] += 1
+        stat_pos[row.player_positions][0] += 1
 
     data.apply(add, axis=1)
-    sta_pos = sta_pos.loc[:, ~(sta_pos == 0).all()]
+    stat_pos = stat_pos.loc[:, ~(stat_pos == 0).all()]
 
-    fig = px.pie(sta_pos, values=sta_pos.loc[0, :], names=sta_pos.columns)
-
-    fig.update_traces(textposition="inside", textinfo="percent+label")
-
-    fig.update_layout(
-        height=600, width=1000, title_text="Proportion of Each Position", title_x=0.5
+    # Create a pie chart
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.pie(
+        stat_pos.loc[0, :], labels=stat_pos.columns, autopct="%1.1f%%", startangle=90
     )
 
-    fig.update_traces(
-        textfont_size=12, marker=dict(line=dict(color="#000000", width=2))
-    )
-    output_file = os.path.join(output_dir, f"position_distribution.png")
-    if os.path.exists(output_file):
-        os.remove(output_file)
+    ax.set_title("Proportion of Each Position")
+    ax.axis("equal")  # Equal aspect ratio ensures that pie is drawn as a circle.
+
+    output_file = os.path.join(output_dir, "position_distribution.png")
     plt.savefig(output_file)
 
-    fig.show()
+    plt.show()
 
 
+# Example usage:
 plot_position_distribution(data)
+
+
+def compare_players(list_of_players, file_name, data):
+    output_dir = "reports/figures/plots"
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Define stats and their labels
+    stats = ["pace", "shooting", "passing", "dribbling", "defending", "Acceleration"]
+    labels = ["Pace", "Shooting", "Passing", "Dribbling", "Defending", "Acceleration"]
+
+    # Create a DataFrame to store player stats
+    player_stats_df = pd.DataFrame(index=labels)
+
+    for name in list_of_players:
+        player_stats = data[data["short_name"].str.contains(name)][
+            stats
+        ].values.tolist()[0]
+        player_stats_df[name] = player_stats
+
+    # Normalize the stats to be between 0 and 1
+    normalized_stats_df = player_stats_df / player_stats_df.max()
+
+    # Number of stats and players
+    num_stats = len(labels)
+    num_players = len(list_of_players)
+
+    # Create a radar chart
+    angles = [n / float(num_stats) * 2 * 180 for n in range(num_stats)]
+    angles += angles[:1]
+
+    rad = [n / float(num_stats) * 2 * 3.14 for n in range(num_stats)]
+    rad += rad[:1]
+
+    fig, ax = plt.subplots(figsize=(8, 8), subplot_kw={"polar": True})
+
+    for i, player in enumerate(list_of_players):
+        player_stats = normalized_stats_df[player].values.tolist()
+        player_stats += player_stats[:1]
+
+        ax.plot(rad, player_stats, linewidth=2, linestyle="solid", label=player)
+        ax.fill(rad, player_stats, alpha=0.2)
+
+    ax.set_thetagrids(angles[:-1], labels)
+    plt.yticks(
+        [0.2, 0.4, 0.6, 0.8], ["0.2", "0.4", "0.6", "0.8"], color="grey", size=10
+    )
+    plt.ylim(0, 1)
+    plt.legend(loc="upper right", bbox_to_anchor=(0.1, 0.1))
+    plt.title("Comparison between players")
+
+    output_file = os.path.join(output_dir, f"plot_{file_name}.png")
+    plt.savefig(output_file)
+    plt.show()
+
+
+# Example usage:
+compare_players(["L. Messi", "Cristiano Ronaldo"], "messi_vs_ronaldo", data)
+compare_players(["Neymar Jr", "Pogba", "K. Mbappé"], "ney_mbappe_pogba", data)
 
 
 def generate_and_display_boxplot(data, position):
@@ -211,7 +192,7 @@ def generate_and_display_boxplot(data, position):
         print("Invalid position. Please provide 'GK' or 'Non-GK'.")
         return
 
-    output_dir = "../../reports/figures/plots"
+    output_dir = "reports/figures/plots"
     os.makedirs(output_dir, exist_ok=True)
 
     # Filter data based on the provided position
@@ -252,10 +233,6 @@ def generate_and_display_boxplot(data, position):
 
 generate_and_display_boxplot(data, "GK")  # For GK boxplot
 generate_and_display_boxplot(data, "Non-GK")  # For Non-GK boxplot
-
-import matplotlib.pyplot as plt
-import seaborn as sns
-import os
 
 
 def generate_and_save_heatmap(data):
